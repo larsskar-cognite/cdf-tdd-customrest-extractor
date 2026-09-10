@@ -1,0 +1,66 @@
+[project]
+name = "tddextractexercise"
+version = "1.0.0"
+description = "Exercise to develop extractor through TDD"
+authors = [ { name = "Lars Arne Skår", email = "lars.skar@gmail.com" } ]
+requires-python = ">=3.11"
+readme = "README.md"
+
+dependencies = [
+    "cognite-extractor-utils>=7.11.3",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.0",
+    "macholib>=1.16.3 ; sys_platform == 'darwin'", # Used by pyinstaller on Mac OS
+    "pefile>=2023.2.7 ; sys_platform == 'win32'", # Used by pyinstaller on Windows
+    "pywin32-ctypes>=0.2.3 ; sys_platform == 'win32'", # Used by pyinstaller on Windows
+    "mypy>=2.3.1",
+    "ruff>=0.16.6",
+    "pre-commit>=4.6.2",
+]
+
+[project.scripts]
+tddextractexercise = "tddextractexercise.__main__:main"
+
+[tool.ruff]
+target-version = "py311"
+exclude = [".git", ".mypy_cache", ".ruff_cache"]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "T20", "UP"]
+ignore = []
+fixable = ["A", "B", "C", "D", "E", "F", "I", "UP"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.mypy]
+pretty = true
+check_untyped_defs = true
+ignore_missing_imports = false
+disallow_untyped_defs = true
+follow_imports = "normal"
+namespace_packages = true
+explicit_package_bases = true
+show_error_codes = true
+exclude = ["tests/*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["tddextractexercise"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["tddextractexercise"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+filterwarnings = [
+    "ignore::cognite.client.utils._experimental.FeaturePreviewWarning",
+]

@@ -1,0 +1,47 @@
+# This comes from BaseConfig:
+cognite:
+  project: ${CDF_PROJECT}
+  host: ${CDF_BASE_URL}
+
+  idp-authentication:
+    token-url: ${CDF_TOKEN_URL}
+    client-id: ${CDF_CLIENT_ID}
+    secret: ${CDF_CLIENT_SECRET}
+    scopes:
+      - ${CDF_BASE_URL}/.default
+
+  connection:
+    disable-ssl: False
+
+logger:
+  console:
+    level: INFO
+  file:
+    path: "debug.log"
+    level: DEBUG
+
+# This is from our additions:
+files:
+  - path: "/Users/lars.skar@cognitedata.com/TEWork/datafromdocs/NewProdom_batch_upload.csv"
+    key-column: DocumentPrimKey
+    destination:
+      database: NEWPRODOM_CLOV_STAGING
+      table: NEWPRODOM_CLOV_OPERATION_DOCUMENTS
+
+  - path: "/Users/lars.skar@cognitedata.com/TEWork/datafromdocs/filedetails_mock.csv"
+    key-column: PrimKey
+    destination:
+      database: NEWPRODOM_CLOV_STAGING
+      table: NEWPRODOM_CLOV_FILES
+
+sites:
+  - name: CLOV
+    domain: "20020"
+    url-operations: "https://south-africa.newprodom.totalenergies.com/api/v1/operations"
+    url-rfm: "https://south-africa.newprodom.totalenergies.com/api/v1/rfm"
+    url-docdownload: "https://south-africa.newprodom.totalenergies.com/api/v1/documents/download"
+    fromTime: "2025-12-01 00:00:00"
+    toTime: "2025-12-10 00:00:00"
+    destination:
+      database: NEWPRODOM_CLOV_STAGING
+      table: NEWPRODOM_CLOV_OPERATION_DOCUMENTS
