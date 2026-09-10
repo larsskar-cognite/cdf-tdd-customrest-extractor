@@ -1,0 +1,16 @@
+
+repos:
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+    rev: v0.16.6
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy tddextractexercise
+        language: system
+        types: [python]
+        pass_filenames: false

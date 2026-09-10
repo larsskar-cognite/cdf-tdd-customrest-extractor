@@ -1,0 +1,67 @@
+# Azure Key Vault configuration for fetching secrets
+# The !keyvault tags above will use this configuration
+# Note: keyvault-name does NOT support ${ENV_VAR} substitution
+type: local
+azure-keyvault:
+  keyvault-name: totalenergiesdev
+  # Options: default (uses DefaultAzureCredential including az login) or client-secret
+  authentication-method: default
+  # Only needed if authentication-method is client-secret:
+  # tenant-id: ${CDF_TENANT_ID}
+  # client-id: ${KEYVAULT_CLIENT_ID}
+  # secret: ${KEYVAULT_CLIENT_SECRET}
+
+# This comes from BaseConfig:
+cognite:
+  project: ${CDF_PROJECT}
+  host: ${CDF_BASE_URL}
+
+  idp-authentication:
+    token-url: ${CDF_TOKEN_URL}
+    # These are fetched from Azure Key Vault using the !keyvault tag
+    client-id: !keyvault AZR-IASP-LZ-SurfaceDataPlatform-CDF-EXT-NEWPRODOM-app-DEV-client-id
+    secret:    !keyvault AZR-IASP-LZ-SurfaceDataPlatform-CDF-EXT-NEWPRODOM-app-DEV-secret
+    scopes:
+      - ${CDF_BASE_URL}/.default
+
+#  connection:
+#    disable-ssl: False
+
+logger:
+  console:
+    level: INFO
+  file:
+    path: "debug.log"
+    level: DEBUG
+
+# This comes from BaseConfig:
+cognite:
+  project: larsdog-test
+  host: https://bluefield.cognitedata.com
+
+  idp-authentication:
+    token-url: https://login.microsoftonline.com/1cb4907f-5df6-4d8b-ba18-8c46605259ff/oauth2/v2.0/token
+    # These are fetched from Azure Key Vault using the !keyvault tag
+    client-id: !keyvault AZR-IASP-LZ-SurfaceDataPlatform-CDF-EXT-NEWPRODOM-app-DEV-client-id
+    secret:    !keyvault AZR-IASP-LZ-SurfaceDataPlatform-CDF-EXT-NEWPRODOM-app-DEV-secret
+    scopes:
+      - https://bluefield.cognitedata.com/.default
+
+
+
+sites:
+  - cdf-space: isp_test
+    newprodom-site: CLV
+    domain: "20020"
+    newprodom-url: !keyvault newprodom-southafrica-url
+    newprodom-user: !keyvault newprodom-southafrica-user
+    newprodom-password: !keyvault newprodom-southafrica-password
+    fromTime: "2025-12-01 00:00:00"
+    toTime: "2025-12-10 00:00:00"
+    operation-documents-destination:
+      database: TEST_RAW_DATABASE
+      table: TEST_METADATA_TABLE
+    rfm-documents-destination:
+      database: TEST_RAW_DATABASE
+      table: TEST_METADATA_TABLE
+

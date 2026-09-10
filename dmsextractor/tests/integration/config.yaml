@@ -1,0 +1,26 @@
+type: local
+
+logger:
+    console:
+        level: INFO
+
+cognite:
+    # Read these from environment variables
+    host: ${COGNITE_BASE_URL}
+    project: ${COGNITE_PROJECT}
+
+    idp-authentication:
+        token-url: ${COGNITE_TOKEN_URL}
+
+        client-id: ${COGNITE_CLIENT_ID}
+        secret: ${COGNITE_CLIENT_SECRET}
+        scopes:
+            - ${COGNITE_BASE_URL}/.default
+
+source:
+    database: TEST_RAW_DATABASE
+    table: TEST_METADATA_TABLE
+
+target:
+    database: TEST_RAW_TARGET
+    table: TEST_METADATA_TABLE
