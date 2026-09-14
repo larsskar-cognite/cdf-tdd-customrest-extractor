@@ -28,4 +28,4 @@ target:
 target_space:
     space: isp_Target
     name: isp_Target
-    description: Target space for DMS extractor files
+    description: My Target space for DMS extractor files

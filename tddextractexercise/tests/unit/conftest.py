@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
-from dmsextractor.config import DataLocation, TargetSpace
+
+from tddextractexercise.config import DataLocation, TargetSpace
+
 
 @pytest.fixture
 def sample_row():
@@ -9,9 +11,10 @@ def sample_row():
     row.columns = {
         "DocumentID": "AO-CLV-ALL-1235-000365",
         "Title": "My Word Doc",
-        "RevisionDate": "2025-04-30",   
+        "RevisionDate": "2025-04-30",
     }
     return row
+
 
 @pytest.fixture
 def config():
@@ -25,10 +28,11 @@ def config():
     )
     return config
 
-    
+
 @pytest.fixture
 def mock_cognite():
     return MagicMock()
+
 
 @pytest.fixture
 def source_node():
@@ -36,6 +40,7 @@ def source_node():
     node.name = "Report.docx"
     node.mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     return node
+
 
 @pytest.fixture
 def target_node():

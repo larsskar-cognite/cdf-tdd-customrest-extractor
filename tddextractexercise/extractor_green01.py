@@ -11,6 +11,7 @@ Mark the extracted documents in the target system as follows:
 * Move the extracted documents to the new space
 """
 
+from datetime import datetime
 import logging
 from threading import Event
 
@@ -19,14 +20,16 @@ from cognite.extractorutils.statestore import AbstractStateStore
 
 from tddextractexercise.config import Config
 
+from datetime import datetime
 
 def process_metadata(payload: dict) -> dict:
-    raise NotImplementedError("Implement process_metadata — see tests/unit/test_extractor.py")
-
-
-def process_row(cognite: CogniteClient, row, config: Config) -> None:
-    raise NotImplementedError("Implement process_row — see tests/unit/test_extractor.py")
-
+    parsed_date = datetime.strptime(payload["RevisionDate"], "%Y-%m-%d")
+    return {
+        "DocumentId": f"dms_{payload['DocumentID'].lower()}",
+        "Title": payload["Title"],
+        "RevisionDate": parsed_date.strftime("%Y-%m-%d"),
+        "TargetFileExternalId": f"Target_{payload['DocumentID']}",
+    }
 
 def run_extractor(cognite: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     logging.info("Hello, world!")

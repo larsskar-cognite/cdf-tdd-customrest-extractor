@@ -64,9 +64,10 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
         logging.warning(f"No source node for {source_file_external_id}, skipping")
         return
 
-    filename = "Target_" + source_node.name
-#    filename = source_node.name
-    mimetype = source_node.mimeType
+#    filename = "Target_" + source_node.name
+    filename = source_node.name
+#    mimetype = source_node.mimeType
+    mimetype = "application/pdf"
     processed_metadata = process_metadata(row.columns)
 
     cognite.raw.rows.insert(
@@ -83,7 +84,8 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
             mime_type=mimetype,
             description=processed_metadata["Title"],
             source_id=row.columns.get("DocumentID"),
-            source_context="fromDMS",
+#            source_context="fromDMS",
+            source_context="My DMS Source",
     )
     apply_with_retry(cognite, file_apply)
 

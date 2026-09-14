@@ -20,14 +20,6 @@ from cognite.extractorutils.statestore import AbstractStateStore
 from tddextractexercise.config import Config
 
 
-def process_metadata(payload: dict) -> dict:
-    raise NotImplementedError("Implement process_metadata — see tests/unit/test_extractor.py")
-
-
-def process_row(cognite: CogniteClient, row, config: Config) -> None:
-    raise NotImplementedError("Implement process_row — see tests/unit/test_extractor.py")
-
-
 def run_extractor(cognite: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     logging.info("Hello, world!")
 
