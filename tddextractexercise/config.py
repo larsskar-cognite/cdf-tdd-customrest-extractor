@@ -5,15 +5,15 @@ from cognite.extractorutils.configtools import BaseConfig, StateStoreConfig
 
 @dataclass
 class DataLocation:
-    database: str
-    table: str
+    database: str = ""
+    table: str = ""
 
 
 @dataclass
 class TargetSpace:
-    space: str
-    name: str
-    description: str
+    space: str = ""
+    name: str = ""
+    description: str = ""
 
 
 @dataclass

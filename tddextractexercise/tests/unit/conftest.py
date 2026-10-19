@@ -1,5 +1,8 @@
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile
+from cognite.client.testing import CogniteClientMock
 
 from tddextractexercise.config import DataLocation, TargetSpace
 
@@ -31,17 +34,30 @@ def config():
 
 @pytest.fixture
 def mock_cognite():
-    return MagicMock()
+    return CogniteClientMock()
 
 
 @pytest.fixture
 def source_node():
-    node = MagicMock()
-    node.name = "Report.docx"
-    node.mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    return node
+    return CogniteFile(
+        space="isp_CLOV",
+        external_id="NewProdom_CLOV_AO-CLV-ALL-1235-000365",
+        version=1,
+        last_updated_time=0,
+        created_time=0,
+        name="Report.docx",
+        mime_type="text/plain",
+    )
 
 
 @pytest.fixture
 def target_node():
-    return MagicMock()
+    return CogniteFile(
+        space="isp_Target",
+        external_id="Target_AO-CLV-ALL-1235-000365",
+        version=1,
+        last_updated_time=0,
+        created_time=0,
+        name="Target_Report.docx",
+        mime_type="text/plain",
+    )

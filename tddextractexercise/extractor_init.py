@@ -22,4 +22,3 @@ from tddextractexercise.config import Config
 
 def run_extractor(cognite: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     logging.info("Hello, world!")
-

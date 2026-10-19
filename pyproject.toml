@@ -47,7 +47,7 @@ follow_imports = "normal"
 namespace_packages = true
 explicit_package_bases = true
 show_error_codes = true
-exclude = ["tests/*"]
+exclude = ["tests/*", "tddextractexercise/extractor_.*\\.py"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["tddextractexercise"]

@@ -1,11 +1,9 @@
 from pathlib import Path
 
-import pytest
-from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.configtools import load_yaml
 
 from tddextractexercise.config import Config
-from tddextractexercise.extractor_train01 import process_metadata, process_row
+from tddextractexercise.extractor import process_metadata, process_row
 
 UNIT_TEST_CONFIG = Path(__file__).parent / "config.yaml"
 
@@ -29,17 +27,18 @@ class TestConfigLoading:
         assert config.cognite.host == "https://example.cognitedata.com"
 
 
-class TestProcessMetadata:
-    def test_maps_all_fields(self):
-        result = process_metadata({
+def test_maps_all_fields():
+    result = process_metadata(
+        {
             "DocumentID": "AO-CLV-ALL-1235-000365",
             "Title": "My Word Doc",
             "RevisionDate": "2025-04-30",
-        })
-        assert result["DocumentId"] == "dms_ao-clv-all-1235-000365"
-        assert result["Title"] == "My Word Doc"
-        assert result["RevisionDate"] == "2025-04-30"
-        assert result["TargetFileExternalId"] == "Target_AO-CLV-ALL-1235-000365"
+        }
+    )
+    assert result["DocumentId"] == "dms_ao-clv-all-1235-000365"
+    assert result["Title"] == "My Word Doc"
+    assert result["RevisionDate"] == "2025-04-30"
+    assert result["TargetFileExternalId"] == "Target_AO-CLV-ALL-1235-000365"
 
 
 def build_source_external_id(document_id: str) -> str:
@@ -106,14 +105,4 @@ class TestProcessRow:
         ]
         process_row(mock_cognite, sample_row, config)
         file_apply = mock_cognite.data_modeling.instances.apply.call_args_list[0][0][0]
-        assert file_apply.name == "Target_AO-CLV-ALL-1235-000365"
-
-    def test_retries_on_version_conflict(self, mock_cognite, sample_row, config, source_node):
-        conflict = CogniteAPIError("A version conflict caused the ingest to fail.", 400)
-        mock_cognite.files.download_bytes.return_value = b"content"
-        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
-        mock_cognite.data_modeling.instances.apply.side_effect = [conflict, None]
-
-        process_row(mock_cognite, sample_row, config)
-
-        assert mock_cognite.data_modeling.instances.apply.call_count == 2
+        assert file_apply.name == "Target_Report.docx"

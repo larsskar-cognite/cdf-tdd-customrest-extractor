@@ -1,11 +1,11 @@
 from cognite.client.config import global_config
+from cognite.extractorutils import Extractor  # noqa: E402
+
+from dmsextractor import __version__  # noqa: E402
+from dmsextractor.config import Config  # noqa: E402
+from dmsextractor.extractor_quiet_lie import run_extractor  # noqa: E402
+
 global_config.silence_feature_preview_warnings = True
-
-from cognite.extractorutils import Extractor
-
-from dmsextractor import __version__
-from dmsextractor.config import Config
-from dmsextractor.extractor import run_extractor
 
 
 def main() -> None:

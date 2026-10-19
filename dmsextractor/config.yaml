@@ -22,10 +22,10 @@ source:
     table: TEST_METADATA_TABLE
 
 target:
-    database: TEST_RAW_TARGET
+    database: TEST_RAW_LARS
     table: TEST_METADATA_TABLE
 
 target_space:
-    space: isp_Target
-    name: isp_Target
+    space: isp_Lars
+    name: isp_Lars
     description: My Target space for DMS extractor files
