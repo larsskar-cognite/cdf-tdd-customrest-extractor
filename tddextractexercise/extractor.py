@@ -24,15 +24,15 @@ from tddextractexercise.config import Config
 
 
 def build_source_external_id(document_id: str) -> str:
-    raise NotImplementedError("Implement build_source_external_id — see tests/unit/test_extractor.py")
+    return f"NewProdom_CLOV_{document_id}"
 
 
 def build_target_external_id(document_id: str) -> str:
-    raise NotImplementedError("Implement build_target_external_id — see tests/unit/test_extractor.py")
+    return f"Target_{document_id}"
 
 
 def build_target_filename(source_name: str) -> str:
-    raise NotImplementedError("Implement build_target_filename — see tests/unit/test_extractor.py")
+    return f"Target_{source_name}"
 
 
 def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
@@ -40,7 +40,12 @@ def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
 
 
 def process_metadata(payload: dict[str, Any]) -> dict[str, str]:
-    raise NotImplementedError("Implement process_metadata — see tests/unit/test_extractor.py")
+    return {
+        "DocumentId": f"dms_{payload['DocumentID'].lower()}",
+        "Title": payload["Title"],
+        "RevisionDate": payload["RevisionDate"],
+        "TargetFileExternalId": build_target_external_id(payload["DocumentID"]),
+    }
 
 
 @dataclass
