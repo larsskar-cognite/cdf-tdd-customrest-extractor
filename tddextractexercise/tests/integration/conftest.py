@@ -7,8 +7,6 @@ from cognite.extractorutils.configtools import load_yaml
 from tddextractexercise.config import Config
 
 SOURCE_SPACE = "isp_CLOV"
-SOURCE_FILE_PREFIX = "NewProdom_CLOV_"
-TARGET_FILE_PREFIX = "Target_"
 
 # Row key known to have been processed end-to-end
 KNOWN_TEST_KEY = "cb091563-1433-4a3f-b44f-2a83f6225f15"
@@ -16,14 +14,6 @@ KNOWN_TEST_KEY = "cb091563-1433-4a3f-b44f-2a83f6225f15"
 
 def target_space(config: Config) -> str:
     return config.target_space.space
-
-
-def build_source_external_id(document_id: str) -> str:
-    return f"{SOURCE_FILE_PREFIX}{document_id}"
-
-
-def build_target_external_id(document_id: str) -> str:
-    return f"{TARGET_FILE_PREFIX}{document_id}"
 
 
 @pytest.fixture(scope="session")

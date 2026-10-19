@@ -48,16 +48,3 @@ def source_node():
         name="Report.docx",
         mime_type="text/plain",
     )
-
-
-@pytest.fixture
-def target_node():
-    return CogniteFile(
-        space="isp_Target",
-        external_id="Target_AO-CLV-ALL-1235-000365",
-        version=1,
-        last_updated_time=0,
-        created_time=0,
-        name="Target_Report.docx",
-        mime_type="text/plain",
-    )

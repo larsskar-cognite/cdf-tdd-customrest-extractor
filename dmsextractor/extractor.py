@@ -62,7 +62,6 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
     )
 
     filename = "Target_" + source_node.name
-    #    filename = source_node.name
     mimetype = source_node.mimeType
     processed_metadata = process_metadata(row.columns)
 

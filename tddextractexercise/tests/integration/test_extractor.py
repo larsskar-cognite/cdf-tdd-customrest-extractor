@@ -1,11 +1,14 @@
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile
 
-from tddextractexercise.extractor import process_metadata
-from tddextractexercise.tests.integration.conftest import (
-    SOURCE_SPACE,
+from tddextractexercise.extractor import (
     build_source_external_id,
     build_target_external_id,
+    process_metadata,
+    process_row,
+)
+from tddextractexercise.tests.integration.conftest import (
+    SOURCE_SPACE,
     get_source_target_pair,
     target_space,
 )
@@ -124,13 +127,21 @@ def test_source_rows_with_files_have_target_rows(cdf_client, config):
 
 
 def test_reprocessing_same_document_is_idempotent(cdf_client, config, known_test_key):
-    """Run extractor twice on same row; target should still match source."""
-    # 1. Run extractor (or call process_row twice via a test hook)
-    # 2. Assert parity tests still pass:
+    source_row, _, _ = get_source_target_pair(cdf_client, config, known_test_key)
+
+    process_row(cdf_client, source_row, config)
+    process_row(cdf_client, source_row, config)
+
     source_row, target_row, document_id = get_source_target_pair(cdf_client, config, known_test_key)
     assert target_row.columns == process_metadata(source_row.columns)
 
-    # bytes still match
+    target_node = cdf_client.data_modeling.instances.retrieve_nodes(
+        nodes=NodeId(space=target_space(config), external_id=build_target_external_id(document_id)),
+        node_cls=CogniteFile,
+    )
+    assert target_node is not None
+    assert target_node.name.count("Target_") == 1, "Prefix applied more than once"
+
     source_bytes = cdf_client.files.download_bytes(
         instance_id=NodeId(space=SOURCE_SPACE, external_id=build_source_external_id(document_id))
     )

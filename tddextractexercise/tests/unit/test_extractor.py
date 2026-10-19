@@ -3,7 +3,13 @@ from pathlib import Path
 from cognite.extractorutils.configtools import load_yaml
 
 from tddextractexercise.config import Config
-from tddextractexercise.extractor import process_metadata, process_row
+from tddextractexercise.extractor import (
+    build_source_external_id,
+    build_target_external_id,
+    build_target_filename,
+    process_metadata,
+    process_row,
+)
 
 UNIT_TEST_CONFIG = Path(__file__).parent / "config.yaml"
 
@@ -41,18 +47,6 @@ def test_maps_all_fields():
     assert result["TargetFileExternalId"] == "Target_AO-CLV-ALL-1235-000365"
 
 
-def build_source_external_id(document_id: str) -> str:
-    return f"NewProdom_CLOV_{document_id}"
-
-
-def build_target_external_id(document_id: str) -> str:
-    return f"Target_{document_id}"
-
-
-def build_target_filename(source_name: str) -> str:
-    return f"Target_{source_name}"
-
-
 class TestExternalIds:
     def test_source_external_id(self):
         assert build_source_external_id("AO-CLV-ALL-1235-000365") == "NewProdom_CLOV_AO-CLV-ALL-1235-000365"
@@ -66,7 +60,6 @@ class TestExternalIds:
 
 class TestProcessRow:
     def test_skips_when_source_node_missing(self, mock_cognite, sample_row, config):
-        mock_cognite.files.download_bytes.return_value = b"fake-content"
         mock_cognite.data_modeling.instances.retrieve_nodes.return_value = None
         process_row(mock_cognite, sample_row, config)
         mock_cognite.raw.rows.insert.assert_not_called()
@@ -97,12 +90,9 @@ class TestProcessRow:
         assert instance_id.external_id.startswith("Target_")
         assert "NewProdom" not in instance_id.external_id
 
-    def test_applies_target_prefix_to_filename(self, mock_cognite, sample_row, config, source_node, target_node):
+    def test_applies_target_prefix_to_filename(self, mock_cognite, sample_row, config, source_node):
         mock_cognite.files.download_bytes.return_value = b"content"
-        mock_cognite.data_modeling.instances.retrieve_nodes.side_effect = [
-            source_node,
-            target_node,
-        ]
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
         process_row(mock_cognite, sample_row, config)
         file_apply = mock_cognite.data_modeling.instances.apply.call_args_list[0][0][0]
         assert file_apply.name == "Target_Report.docx"

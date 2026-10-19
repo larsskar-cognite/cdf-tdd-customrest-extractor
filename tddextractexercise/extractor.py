@@ -24,10 +24,22 @@ from cognite.extractorutils.threading import CancellationToken
 from tddextractexercise.config import Config
 
 
+def build_source_external_id(document_id: str) -> str:
+    return f"NewProdom_CLOV_{document_id}"
+
+
+def build_target_external_id(document_id: str) -> str:
+    return f"Target_{document_id}"
+
+
+def build_target_filename(source_name: str) -> str:
+    return f"Target_{source_name}"
+
+
 def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
     columns: dict[str, Any] = row.columns or {}
     source_space = "isp_CLOV"
-    source_external_id = "NewProdom_CLOV_" + columns.get("DocumentID", "")
+    source_external_id = build_source_external_id(columns.get("DocumentID", ""))
     source_node = cognite.data_modeling.instances.retrieve_nodes(
         nodes=NodeId(space=source_space, external_id=source_external_id),
         node_cls=CogniteFile,
@@ -47,7 +59,7 @@ def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
     target_file_external_id = processed_metadata["TargetFileExternalId"]
     file_apply = CogniteFileApply(
         external_id=target_file_external_id,
-        name=f"Target_{source_node.name}",
+        name=build_target_filename(source_node.name or ""),
         mime_type=source_node.mime_type,
         description=columns.get("Title"),
         source_id=columns.get("DocumentID"),
@@ -69,7 +81,7 @@ def process_metadata(payload: dict[str, Any]) -> dict[str, str]:
         "DocumentId": f"dms_{payload['DocumentID'].lower()}",
         "Title": payload["Title"],
         "RevisionDate": payload["RevisionDate"],
-        "TargetFileExternalId": f"Target_{payload['DocumentID']}",
+        "TargetFileExternalId": build_target_external_id(payload["DocumentID"]),
     }
 
 
