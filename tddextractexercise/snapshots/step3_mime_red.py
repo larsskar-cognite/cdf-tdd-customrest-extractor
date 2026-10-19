@@ -12,43 +12,57 @@ Mark the extracted documents in the target system as follows:
 """
 
 import logging
-from threading import Event
+from dataclasses import dataclass, field
+from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Row
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
 from cognite.extractorutils.statestore import AbstractStateStore
+from cognite.extractorutils.threading import CancellationToken
 
 from tddextractexercise.config import Config
 
 
-def process_row(cognite: CogniteClient, row, config: Config) -> None:
+def build_source_external_id(document_id: str) -> str:
+    return f"NewProdom_CLOV_{document_id}"
+
+
+def build_target_external_id(document_id: str) -> str:
+    return f"Target_{document_id}"
+
+
+def build_target_filename(source_name: str) -> str:
+    return f"Target_{source_name}"
+
+
+def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
+    columns: dict[str, Any] = row.columns or {}
     source_space = "isp_CLOV"
-    source_external_id = "NewProdom_CLOV_" + row.columns.get("DocumentID")
+    source_external_id = build_source_external_id(columns.get("DocumentID", ""))
     source_node = cognite.data_modeling.instances.retrieve_nodes(
         nodes=NodeId(space=source_space, external_id=source_external_id),
         node_cls=CogniteFile,
     )
     if source_node is None:
-        logging.warning(f"Source node not found for {row.columns.get('DocumentID')}")
+        logging.warning(f"Source node not found for {columns.get('DocumentID')}")
         return
 
-    processed_metadata = process_metadata(row.columns)
+    processed_metadata = process_metadata(columns)
+    target_file_external_id = processed_metadata["TargetFileExternalId"]
     cognite.raw.rows.insert(
         db_name=config.target.database,
         table_name=config.target.table,
         row=Row(key=row.key, columns=processed_metadata),
         ensure_parent=True,
     )
-
-    target_file_external_id = processed_metadata.get("TargetFileExternalId")
     file_apply = CogniteFileApply(
         external_id=target_file_external_id,
-        name=f"Target_{source_node.name}",
-        mime_type=source_node.mimeType,
-        description=row.columns.get("Title"),
-        source_id=row.columns.get("DocumentID"),
+        name=build_target_filename(source_node.name or ""),
+        mime_type="application/pdf",
+        description=columns.get("Title"),
+        source_id=columns.get("DocumentID"),
         source_context="fromDMS",
         space=config.target_space.space,
     )
@@ -62,17 +76,30 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
     )
 
 
-def process_metadata(payload: dict) -> dict:
+def process_metadata(payload: dict[str, Any]) -> dict[str, str]:
     return {
         "DocumentId": f"dms_{payload['DocumentID'].lower()}",
         "Title": payload["Title"],
         "RevisionDate": payload["RevisionDate"],
-        "TargetFileExternalId": f"Target_{payload['DocumentID']}",
+        "TargetFileExternalId": build_target_external_id(payload["DocumentID"]),
     }
 
 
-def run_extractor(cognite: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
+@dataclass
+class RunSummary:
+    processed: int = 0
+    failed: list[str] = field(default_factory=list)
+
+
+def run_extractor(
+    cognite: CogniteClient, states: AbstractStateStore, config: Config, stop_event: CancellationToken
+) -> None:
     logging.info("Starting extractor")
+    process_rows(cognite, config)
+
+
+def process_rows(cognite: CogniteClient, config: Config) -> RunSummary:
+    summary = RunSummary()
     source_rows = cognite.raw.rows.list(
         db_name=config.source.database,
         table_name=config.source.table,
@@ -80,5 +107,8 @@ def run_extractor(cognite: CogniteClient, states: AbstractStateStore, config: Co
     )
     for row in source_rows:
         process_row(cognite, row, config)
-        logging.info(f"Processed row: {row.key} with name: {row.columns.get('Title')}")
-    logging.info("Finished processing rows")
+        summary.processed += 1
+        columns: dict[str, Any] = row.columns or {}
+        logging.info(f"Processed row: {row.key} with name: {columns.get('Title')}")
+    logging.info(f"Finished processing rows: {summary.processed} processed")
+    return summary
