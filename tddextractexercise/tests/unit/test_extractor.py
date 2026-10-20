@@ -1,7 +1,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from cognite.client.data_classes import Row
+from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.configtools import load_yaml
 
 from tddextractexercise.config import Config
@@ -119,3 +121,51 @@ class TestScale:
         assert kwargs["table_name"] == "SRC_TABLE"
         assert kwargs["limit"] is None
         assert kwargs["chunk_size"] is not None
+
+    def test_retries_apply_on_version_conflict(self, mock_cognite, sample_row, config, source_node):
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
+        mock_cognite.data_modeling.instances.apply.side_effect = [
+            CogniteAPIError(message="Version conflict", code=409),
+            None,
+        ]
+        with patch("time.sleep") as sleep:
+            process_row(mock_cognite, sample_row, config)
+        assert mock_cognite.data_modeling.instances.apply.call_count == 2
+        sleep.assert_called_once()
+        mock_cognite.files.upload_content_bytes.assert_called_once()
+
+    def test_does_not_retry_other_api_errors(self, mock_cognite, sample_row, config, source_node):
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
+        mock_cognite.data_modeling.instances.apply.side_effect = CogniteAPIError(message="Forbidden", code=403)
+        with patch("time.sleep") as sleep, pytest.raises(CogniteAPIError):
+            process_row(mock_cognite, sample_row, config)
+        assert mock_cognite.data_modeling.instances.apply.call_count == 1
+        sleep.assert_not_called()
+
+    def test_run_continues_past_failing_rows_and_reports_them(self, mock_cognite, config, source_node):
+        rows = [
+            Row(key=f"row-{i}", columns={"DocumentID": f"DOC-{i}", "Title": f"Doc {i}", "RevisionDate": "2025-04-30"})
+            for i in range(5)
+        ]
+        mock_cognite.raw.rows.return_value = iter([rows])
+        boom = CogniteAPIError(message="Internal error", code=500)
+        mock_cognite.data_modeling.instances.retrieve_nodes.side_effect = [
+            source_node,
+            boom,
+            source_node,
+            boom,
+            source_node,
+        ]
+
+        summary = process_rows(mock_cognite, config)
+
+        assert summary.processed == 3
+        assert summary.failed == ["row-1", "row-3"]
+        assert mock_cognite.files.upload_content_bytes.call_count == 3
+
+    def test_no_raw_row_when_upload_fails(self, mock_cognite, sample_row, config, source_node):
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
+        mock_cognite.files.upload_content_bytes.side_effect = CogniteAPIError(message="Upload failed", code=500)
+        with pytest.raises(CogniteAPIError):
+            process_row(mock_cognite, sample_row, config)
+        mock_cognite.raw.rows.insert.assert_not_called()
