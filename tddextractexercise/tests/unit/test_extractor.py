@@ -10,6 +10,7 @@ from tddextractexercise.extractor import (
     build_target_external_id,
     build_target_filename,
     process_metadata,
+    process_row,
     process_rows,
 )
 
@@ -58,6 +59,46 @@ class TestExternalIds:
 
     def test_target_filename_preserves_extension(self):
         assert build_target_filename("Report.docx") == "Target_Report.docx"
+
+
+class TestProcessRow:
+    def test_skips_when_source_node_missing(self, mock_cognite, sample_row, config):
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = None
+        process_row(mock_cognite, sample_row, config)
+        mock_cognite.raw.rows.insert.assert_not_called()
+        mock_cognite.files.upload_content_bytes.assert_not_called()
+        mock_cognite.data_modeling.instances.apply.assert_not_called()
+
+    def test_uses_source_mimetype_not_pdf(self, mock_cognite, sample_row, config, source_node):
+        word_mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        source_node.mime_type = word_mime
+        mock_cognite.files.download_bytes.return_value = b"PK\x03\x04fake"
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
+        process_row(mock_cognite, sample_row, config)
+        file_apply = mock_cognite.data_modeling.instances.apply.call_args_list[0][0][0]
+        assert file_apply.mime_type == word_mime
+        assert file_apply.description == "My Word Doc"
+
+    def test_uploads_with_correct_instance_id(self, mock_cognite, sample_row, config, source_node):
+        mock_cognite.files.download_bytes.return_value = b"content"
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
+        process_row(mock_cognite, sample_row, config)
+        file_apply = mock_cognite.data_modeling.instances.apply.call_args_list[0][0][0]
+        assert file_apply.source_context == "fromDMS"
+        assert file_apply.source_id == "AO-CLV-ALL-1235-000365"
+        upload_call = mock_cognite.files.upload_content_bytes.call_args
+        instance_id = upload_call.kwargs["instance_id"]
+        assert instance_id.space == "isp_Target"
+        assert instance_id.external_id == "Target_AO-CLV-ALL-1235-000365"
+        assert instance_id.external_id.startswith("Target_")
+        assert "NewProdom" not in instance_id.external_id
+
+    def test_applies_target_prefix_to_filename(self, mock_cognite, sample_row, config, source_node):
+        mock_cognite.files.download_bytes.return_value = b"content"
+        mock_cognite.data_modeling.instances.retrieve_nodes.return_value = source_node
+        process_row(mock_cognite, sample_row, config)
+        file_apply = mock_cognite.data_modeling.instances.apply.call_args_list[0][0][0]
+        assert file_apply.name == "Target_Report.docx"
 
 
 class TestScale:
