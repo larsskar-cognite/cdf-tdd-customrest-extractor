@@ -88,7 +88,7 @@ Run from the repository root so Python can resolve the local packages.
 ### Reference extractor (`dmsextractor`)
 
 ```bash
-python -m dmsextractor --config dmsextractor/config.yaml
+python -m dmsextractor dmsextractor/config.yaml
 ```
 
 Config defines source RAW (`TEST_RAW_DATABASE`), target RAW (`TEST_RAW_TARGET`), and target space (`isp_Target`). Run this once before integration tests so target data exists.
@@ -96,7 +96,7 @@ Config defines source RAW (`TEST_RAW_DATABASE`), target RAW (`TEST_RAW_TARGET`),
 ### Hands-on exercise (`tddextractexercise`)
 
 ```bash
-python -m tddextractexercise --config tddextractexercise/config.yaml
+python -m tddextractexercise tddextractexercise/config.yaml
 ```
 
 Start from the stub in [`tddextractexercise/extractor.py`](tddextractexercise/extractor.py) and implement `process_metadata`, `process_row`, and `run_extractor` using TDD. [`tddextractexercise/config.yaml`](tddextractexercise/config.yaml) has the same structure as the `dmsextractor` config. `run_extractor` processes the first 10 source rows (`limit=10`); `test_source_rows_with_files_have_target_rows` assumes the same limit.
@@ -113,7 +113,7 @@ git checkout devcon-demo        # back to the branch head (stub)
 Populates source RAW tables and files in `isp_CLOV`. Requires a separate config file with site/API settings; copy [`customrestextractor/example_config.yaml`](customrestextractor/example_config.yaml) and set `SOURCE_API_URL`, `SOURCE_API_USER` and `SOURCE_API_PASSWORD` in addition to the `COGNITE_*` variables. Run once to prepare the training environment:
 
 ```bash
-python -m customrestextractor --config <path-to-customrestextractor-config.yaml>
+python -m customrestextractor <path-to-customrestextractor-config.yaml>
 ```
 
 ## Running tests
@@ -135,7 +135,7 @@ Requires `.env` credentials and a prior successful run of the extractor so targe
 
 ```bash
 # 1. Populate target (if not already done)
-python -m tddextractexercise --config tddextractexercise/config.yaml
+python -m tddextractexercise tddextractexercise/config.yaml
 
 # 2. Run integration tests
 pytest tddextractexercise/tests/integration/ \
@@ -184,7 +184,7 @@ uv run mypy tddextractexercise
 
 # Load credentials and run the exercise extractor
 set -a && source .env && set +a
-python -m tddextractexercise --config tddextractexercise/config.yaml
+python -m tddextractexercise tddextractexercise/config.yaml
 
 # Integration tests (needs .env + pre-run extractor)
 pytest tddextractexercise/tests/integration/ \

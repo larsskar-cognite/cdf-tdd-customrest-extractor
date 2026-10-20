@@ -59,7 +59,7 @@ Interactive: ask "will it pass?" before each run.
   ```
   the extractor. Make it real or drop it.
   ```
-- [ ] Verify hard-coded `KNOWN_TEST_KEY` and client name `"twin-auditor-service"` work in the demo project
+- [x] Verify hard-coded `KNOWN_TEST_KEY` and client name `"twin-auditor-service"` work in the demo project
 
 
 
@@ -83,10 +83,10 @@ Interactive: ask "will it pass?" before each run.
 
 ## Staging checklist
 
-- [ ] Git tags/commits: stub, metadata green, skip green, MIME red, MIME green, full solution
+- [x] Git tags/commits: stub, metadata green, skip green, MIME red, MIME green, full solution
 - [ ] Record sped-up non-TDD clip
-- [ ] Run extractor beforehand so target data exists
-- [ ] Record or screenshot a passing integration run (fallback)
+- [x] Run extractor beforehand so target data exists
+- [x] Record or screenshot a passing integration run (fallback, text output in `rehearsal/`)
 - [ ] Optional slide: CI runs unit tests on every commit, integration tests as a gate (use your own CI setup)
 - [ ] Large fonts, pre-configured terminal commands, `.env` out of sight, env vars loaded
 
@@ -97,7 +97,7 @@ Interactive: ask "will it pass?" before each run.
 ```bash
 pytest tddextractexercise/tests/unit -v
 set -a && source .env && set +a
-python -m tddextractexercise --config tddextractexercise/config.yaml
+python -m tddextractexercise tddextractexercise/config.yaml
 pytest tddextractexercise/tests/integration/ \
   --config tddextractexercise/tests/integration/config.yaml -v
 ```
@@ -114,9 +114,34 @@ refactoring, scale and AI-generated code.
 
 
 
+## Rehearsal results (2026-10-20, project `larsdog-test` on bluefield)
+
+- `KNOWN_TEST_KEY` (`cb091563-...`) exists, is within the first 10 source rows,
+and has a source file (`AO-CLV-ALL-1235-000352.pdf`). Client name
+`twin-auditor-service` works with the `.env` credentials. Target space `isp_Target` exists.
+- MIME types in the first 10 source files: 9 PDF, 1 Word (`1bc2e0c0-...`). The
+integration MIME check uses `KNOWN_TEST_KEY`, which is a PDF, so it would not
+catch the hard-coded PDF bug. Only the unit test catches it. Say this on stage,
+or point `KNOWN_TEST_KEY` at the Word row.
+- The extractor takes the config path as a positional argument; `--config` fails
+with "unrecognized arguments".
+
+| Step | Wall time |
+| ---- | --------- |
+| Extractor run at `demo-5-full` (10 rows, 0 failed) | 12 s |
+| Integration suite (6 tests) | 11.5 s |
+| Integration `test_target_file_bytes_equal_source_file_bytes` alone | 1.9 s |
+| Unit tests at any demo tag | < 0.5 s |
+
+Red/green results per commit on `devcon-demo` match the plan: demo 1 red (4 fail),
+demo 2 red (1 fail), demo 3 red (3 fail), demo 3 hard-coded PDF (1 fail:
+`test_uses_source_mimetype_not_pdf`), demo 5 red (4 fail), every green commit passes.
+
+Fallback output is saved in `rehearsal/` (gitignored): `integration_run_full.txt`,
+`integration_bytes_parity.txt` and `unit_<commit>_<step>.txt` for each demo commit.
+
 ## Open gaps (not covered by my sources)
 
 - extractor-utils' own testing helpers
 - Recommended CI setup for integration tests
-- Actual timings of live runs against CDF
 

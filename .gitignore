@@ -221,3 +221,6 @@ __marimo__/
 
 # macOS
 .DS_Store
+
+# Local demo rehearsal output
+rehearsal/

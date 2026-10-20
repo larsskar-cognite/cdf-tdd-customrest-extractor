@@ -38,7 +38,7 @@ Complete these **the day before** the session:
 
   ```bash
   set -a && source .env && set +a
-  python -m dmsextractor --config dmsextractor/config.yaml
+  python -m dmsextractor dmsextractor/config.yaml
   ```
 
 - [ ] Integration tests all green:
@@ -69,7 +69,7 @@ pytest dmsextractor/tests/unit -v
 pytest tddextractexercise/tests/unit -v
 
 # Run reference extractor (needs .env)
-python -m dmsextractor --config dmsextractor/config.yaml
+python -m dmsextractor dmsextractor/config.yaml
 
 # Integration tests (needs .env + pre-run extractor)
 pytest dmsextractor/tests/integration/ \
@@ -113,7 +113,7 @@ pytest dmsextractor/tests/integration/ \
 2. Run extractor:
 
    ```bash
-   python -m dmsextractor --config dmsextractor/config.yaml
+   python -m dmsextractor dmsextractor/config.yaml
    ```
 
 3. Manual validation checklist:
@@ -155,11 +155,13 @@ pytest dmsextractor/tests/integration/ \
 
 ```python
 def test_maps_all_fields(self):
-    result = process_metadata({
-        "DocumentID": "AO-CLV-ALL-1235-000365",
-        "Title": "My Word Doc",
-        "RevisionDate": "2025-04-30",
-    })
+    result = process_metadata(
+        {
+            "DocumentID": "AO-CLV-ALL-1235-000365",
+            "Title": "My Word Doc",
+            "RevisionDate": "2025-04-30",
+        }
+    )
     assert result["DocumentId"] == "dms_ao-clv-all-1235-000365"
     assert result["Title"] == "My Word Doc"
     assert result["RevisionDate"] == "2025-04-30"
@@ -340,7 +342,7 @@ target_external_id = f"Target_{source_document_id}"
 **Re-run extractor:**
 
 ```bash
-python -m dmsextractor --config dmsextractor/config.yaml
+python -m dmsextractor dmsextractor/config.yaml
 ```
 
 **Show the contrast:**
@@ -371,7 +373,7 @@ Revert `process_metadata` to the correct prefix:
 **Re-run extractor, then integration tests (expect green):**
 
 ```bash
-python -m dmsextractor --config dmsextractor/config.yaml
+python -m dmsextractor dmsextractor/config.yaml
 
 pytest dmsextractor/tests/integration/ \
   --config dmsextractor/tests/integration/config.yaml \
@@ -448,7 +450,7 @@ pytest tddextractexercise/tests/unit -v
 
 # 2. Run your extractor against CDF
 set -a && source .env && set +a
-python -m tddextractexercise --config dmsextractor/config.yaml
+python -m tddextractexercise tddextractexercise/config.yaml
 
 # 3. Compare with reference integration tests
 pytest dmsextractor/tests/integration/ \

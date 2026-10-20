@@ -72,7 +72,7 @@ pytest tddextractexercise/tests/unit -v
 
 # Load credentials, run the extractor, run integration tests
 set -a && source .env && set +a
-python -m tddextractexercise --config tddextractexercise/config.yaml
+python -m tddextractexercise tddextractexercise/config.yaml
 pytest tddextractexercise/tests/integration/ \
   --config tddextractexercise/tests/integration/config.yaml -v
 ```
