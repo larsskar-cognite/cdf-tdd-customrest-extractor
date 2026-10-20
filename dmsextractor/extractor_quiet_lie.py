@@ -1,49 +1,46 @@
-
 import logging
-from threading import Event
-from datetime import datetime
-import mimetypes
-
 import time
-from cognite.client.exceptions import CogniteAPIError
+from datetime import datetime
+from threading import Event
+
 from cognite.client import CogniteClient
-from cognite.extractorutils.statestore import AbstractStateStore
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling import NodeId, SpaceApply
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
 from cognite.client.data_classes.raw import Row
-from cognite.client.data_classes.data_modeling import SpaceApply
-
+from cognite.client.exceptions import CogniteAPIError
+from cognite.extractorutils.statestore import AbstractStateStore
 
 from dmsextractor.config import Config
+
 
 def process_metadata(payload: dict) -> dict:
     # Minimal logic to pass the unit test
     raw_date = payload["RevisionDate"]
     parsed_date = datetime.strptime(raw_date, "%Y-%m-%d")
-    
+
     return {
         "DocumentId": f"dms_{payload['DocumentID'].lower()}",
         "Title": payload["Title"],
         "RevisionDate": parsed_date.strftime("%Y-%m-%d"),
-        "TargetFileExternalId": f"Target_{payload['DocumentID']}"
+        "TargetFileExternalId": f"Target_{payload['DocumentID']}",
     }
+
 
 def is_version_conflict(exc: CogniteAPIError) -> bool:
     return exc.code == 400 and "version conflict" in str(exc).lower()
 
 
-def apply_with_retry(
-    cognite: CogniteClient, file_apply: CogniteFileApply, max_attempts: int = 3
-) -> None:
+def apply_with_retry(cognite: CogniteClient, file_apply: CogniteFileApply, max_attempts: int = 3) -> None:
     for attempt in range(max_attempts):
         try:
             cognite.data_modeling.instances.apply(file_apply)
             return
         except CogniteAPIError as e:
             if is_version_conflict(e) and attempt < max_attempts - 1:
-                time.sleep(0.5 * (2 ** attempt))
+                time.sleep(0.5 * (2**attempt))
                 continue
             raise
+
 
 def process_row(cognite: CogniteClient, row, config: Config) -> None:
     source_document_id = row.columns.get("DocumentID")
@@ -64,9 +61,7 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
         logging.warning(f"No source node for {source_file_external_id}, skipping")
         return
 
-#    filename = "Target_" + source_node.name
     filename = source_node.name
-#    mimetype = source_node.mimeType
     mimetype = "application/pdf"
     processed_metadata = process_metadata(row.columns)
 
@@ -78,14 +73,13 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
     )
 
     file_apply = CogniteFileApply(
-            name=filename,
-            space=target_space,
-            external_id=target_external_id,
-            mime_type=mimetype,
-            description=processed_metadata["Title"],
-            source_id=row.columns.get("DocumentID"),
-#            source_context="fromDMS",
-            source_context="My DMS Source",
+        name=filename,
+        space=target_space,
+        external_id=target_external_id,
+        mime_type=mimetype,
+        description=processed_metadata["Title"],
+        source_id=row.columns.get("DocumentID"),
+        source_context="My DMS Source",
     )
     apply_with_retry(cognite, file_apply)
 
@@ -93,6 +87,7 @@ def process_row(cognite: CogniteClient, row, config: Config) -> None:
         content=source_file_bytes,
         instance_id=NodeId(space=target_space, external_id=target_external_id),
     )
+
 
 def ensure_target_space(cognite: CogniteClient, config: Config) -> None:
     target = config.target_space
@@ -109,12 +104,8 @@ def ensure_target_space(cognite: CogniteClient, config: Config) -> None:
 def run_extractor(cognite: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     logging.info("Starting CDF-to-CDF Extraction Handshake...!")
     ensure_target_space(cognite, config)
-        # 1. Fetch metadata rows from the source RAW system
-    raw_rows = cognite.raw.rows.list(
-        db_name=config.source.database, 
-        table_name=config.source.table, 
-        limit=10
-    )
+    # 1. Fetch metadata rows from the source RAW system
+    raw_rows = cognite.raw.rows.list(db_name=config.source.database, table_name=config.source.table, limit=10)
 
     for row in raw_rows:
         try:
