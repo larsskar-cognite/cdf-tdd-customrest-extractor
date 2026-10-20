@@ -62,7 +62,7 @@ def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
     file_apply = CogniteFileApply(
         external_id=target_file_external_id,
         name=build_target_filename(source_node.name or ""),
-        mime_type="application/pdf",
+        mime_type=source_node.mime_type,
         description=columns.get("Title"),
         source_id=columns.get("DocumentID"),
         source_context="fromDMS",
