@@ -12,6 +12,7 @@ Mark the extracted documents in the target system as follows:
 """
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,6 +20,7 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import Row
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
+from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.statestore import AbstractStateStore
 from cognite.extractorutils.threading import CancellationToken
 
@@ -39,6 +41,22 @@ def build_target_filename(source_name: str) -> str:
     return f"Target_{source_name}"
 
 
+def is_version_conflict(exc: CogniteAPIError) -> bool:
+    return exc.code in (400, 409) and "version conflict" in str(exc).lower()
+
+
+def apply_with_retry(cognite: CogniteClient, file_apply: CogniteFileApply, max_attempts: int = 3) -> None:
+    for attempt in range(max_attempts):
+        try:
+            cognite.data_modeling.instances.apply(file_apply)
+            return
+        except CogniteAPIError as e:
+            if is_version_conflict(e) and attempt < max_attempts - 1:
+                time.sleep(0.5 * (2**attempt))
+                continue
+            raise
+
+
 def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
     columns: dict[str, Any] = row.columns or {}
     source_space = "isp_CLOV"
@@ -53,12 +71,6 @@ def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
 
     processed_metadata = process_metadata(columns)
     target_file_external_id = processed_metadata["TargetFileExternalId"]
-    cognite.raw.rows.insert(
-        db_name=config.target.database,
-        table_name=config.target.table,
-        row=Row(key=row.key, columns=processed_metadata),
-        ensure_parent=True,
-    )
     file_apply = CogniteFileApply(
         external_id=target_file_external_id,
         name=build_target_filename(source_node.name or ""),
@@ -68,13 +80,19 @@ def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
         source_context="fromDMS",
         space=config.target_space.space,
     )
-    cognite.data_modeling.instances.apply(file_apply)
+    apply_with_retry(cognite, file_apply)
     source_file_bytes = cognite.files.download_bytes(
         instance_id=NodeId(space=source_space, external_id=source_external_id)
     )
     cognite.files.upload_content_bytes(
         instance_id=NodeId(space=config.target_space.space, external_id=target_file_external_id),
         content=source_file_bytes,
+    )
+    cognite.raw.rows.insert(
+        db_name=config.target.database,
+        table_name=config.target.table,
+        row=Row(key=row.key, columns=processed_metadata),
+        ensure_parent=True,
     )
 
 
@@ -109,9 +127,14 @@ def process_rows(cognite: CogniteClient, config: Config) -> RunSummary:
         limit=None,
     ):
         for row in chunk:
-            process_row(cognite, row, config)
+            try:
+                process_row(cognite, row, config)
+            except Exception:
+                logging.exception(f"Failed to process row: {row.key}")
+                summary.failed.append(str(row.key))
+                continue
             summary.processed += 1
             columns: dict[str, Any] = row.columns or {}
             logging.info(f"Processed row: {row.key} with name: {columns.get('Title')}")
-    logging.info(f"Finished processing rows: {summary.processed} processed")
+    logging.info(f"Finished processing rows: {summary.processed} processed, {len(summary.failed)} failed")
     return summary
