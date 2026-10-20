@@ -1,0 +1,32 @@
+logger:
+    console:
+        level: INFO
+
+cognite:
+    # Read these from environment variables
+    host: ${COGNITE_BASE_URL}
+    project: ${COGNITE_PROJECT}
+
+    idp-authentication:
+        token-url: ${COGNITE_TOKEN_URL}
+
+        client-id: ${COGNITE_CLIENT_ID}
+        secret: ${COGNITE_CLIENT_SECRET}
+        scopes:
+            - ${COGNITE_BASE_URL}/.default
+
+sites:
+    - cdf-space: isp_CLOV
+      site-name: CLV
+      domain: "<domain>"
+      api-url: ${SOURCE_API_URL}
+      api-user: ${SOURCE_API_USER}
+      api-password: ${SOURCE_API_PASSWORD}
+      fromTime: "2025-12-01 00:00:00"
+      toTime: "2025-12-10 00:00:00"
+      operation-documents-destination:
+          database: TEST_RAW_DATABASE
+          table: TEST_METADATA_TABLE
+      rfm-documents-destination:
+          database: TEST_RAW_DATABASE
+          table: TEST_METADATA_TABLE

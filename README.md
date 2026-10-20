@@ -8,6 +8,7 @@ Training repository for building Cognite Data Fusion (CDF) extractors with test-
 |------|---------|
 | [`dmsextractor/`](dmsextractor/) | Reference implementation and full test suite (unit + integration) |
 | [`tddextractexercise/`](tddextractexercise/) | Hands-on starting point — implement the extractor yourself via TDD |
+| [`tddextractexercise/snapshots/`](tddextractexercise/snapshots/) | Checkpoints of `extractor.py` for each demo step (`step0_stub.py` … `step5_full.py`) |
 | [`customrestextractor/`](customrestextractor/) | Seeds source RAW metadata and files into CDF (simulates an external REST source) |
 
 In production, the source would be an external system. For this training exercise, source data is pre-populated in CDF so you can focus on extraction logic and tests.
@@ -41,8 +42,9 @@ Using [uv](https://docs.astral.sh/uv/) (recommended):
 
 ```bash
 uv sync --group dev
-uv pip install pytest
 ```
+
+The `dev` group includes `pytest`, `ruff` and `mypy`.
 
 Or with pip:
 
@@ -94,14 +96,21 @@ Config defines source RAW (`TEST_RAW_DATABASE`), target RAW (`TEST_RAW_TARGET`),
 ### Hands-on exercise (`tddextractexercise`)
 
 ```bash
-python -m tddextractexercise --config dmsextractor/config.yaml
+python -m tddextractexercise --config tddextractexercise/config.yaml
 ```
 
-Start from the stub in [`tddextractexercise/extractor.py`](tddextractexercise/extractor.py) and implement `process_metadata`, `process_row`, and `run_extractor` using TDD. Use the same config as `dmsextractor` or provide your own YAML with the same structure.
+Start from the stub in [`tddextractexercise/extractor.py`](tddextractexercise/extractor.py) and implement `process_metadata`, `process_row`, and `run_extractor` using TDD. [`tddextractexercise/config.yaml`](tddextractexercise/config.yaml) has the same structure as the `dmsextractor` config. `run_extractor` processes the first 10 source rows (`limit=10`); `test_source_rows_with_files_have_target_rows` assumes the same limit.
+
+The `devcon-demo` branch has one commit per step, with the red test committed before the green implementation. The tags `demo-0-stub`, `demo-1-metadata`, `demo-2-skip`, `demo-3-mime-red`, `demo-4-mime-green` and `demo-5-full` mark each checkpoint:
+
+```bash
+git checkout demo-3-mime-red    # jump to a checkpoint
+git checkout devcon-demo        # back to the branch head (stub)
+```
 
 ### Source data seeder (`customrestextractor`)
 
-Populates source RAW tables and files in `isp_CLOV`. Requires a separate config file with site/API settings (see `config.yaml.old` for an example layout). Run once to prepare the training environment:
+Populates source RAW tables and files in `isp_CLOV`. Requires a separate config file with site/API settings; copy [`customrestextractor/example_config.yaml`](customrestextractor/example_config.yaml) and set `SOURCE_API_URL`, `SOURCE_API_USER` and `SOURCE_API_PASSWORD` in addition to the `COGNITE_*` variables. Run once to prepare the training environment:
 
 ```bash
 python -m customrestextractor --config <path-to-customrestextractor-config.yaml>
@@ -114,25 +123,34 @@ python -m customrestextractor --config <path-to-customrestextractor-config.yaml>
 Fast tests with mocked Cognite client calls. Safe to run anywhere.
 
 ```bash
-pytest dmsextractor/tests/unit -v
 pytest tddextractexercise/tests/unit -v
+pytest dmsextractor/tests/unit -v
 ```
 
-Unit test config uses static placeholder values in [`dmsextractor/tests/unit/config.yaml`](dmsextractor/tests/unit/config.yaml) — no network or secrets required.
+Unit test config uses static placeholder values in [`tddextractexercise/tests/unit/config.yaml`](tddextractexercise/tests/unit/config.yaml) (and [`dmsextractor/tests/unit/config.yaml`](dmsextractor/tests/unit/config.yaml) for the reference) — no network or secrets required.
 
 ### Integration tests (live CDF)
 
-Requires `.env` credentials and a prior successful run of `dmsextractor` so target RAW rows and files exist.
+Requires `.env` credentials and a prior successful run of the extractor so target RAW rows and files exist.
 
 ```bash
 # 1. Populate target (if not already done)
-python -m dmsextractor --config dmsextractor/config.yaml
+python -m tddextractexercise --config tddextractexercise/config.yaml
 
 # 2. Run integration tests
-pytest dmsextractor/tests/integration/ \
-  --config dmsextractor/tests/integration/config.yaml \
+pytest tddextractexercise/tests/integration/ \
+  --config tddextractexercise/tests/integration/config.yaml \
   -v
 ```
+
+For the reference implementation, use `dmsextractor/config.yaml` and `dmsextractor/tests/integration/` the same way.
+
+[`tddextractexercise/tests/integration/conftest.py`](tddextractexercise/tests/integration/conftest.py) hard-codes two values you may need to change for your own CDF project:
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `KNOWN_TEST_KEY` | `cb091563-1433-4a3f-b44f-2a83f6225f15` | Source RAW row key that must exist in `TEST_RAW_DATABASE.TEST_METADATA_TABLE`, have a file in `isp_CLOV`, and be within the first 10 rows the extractor processes |
+| Client name | `twin-auditor-service` | Name passed to `get_cognite_client()`; shows up in CDF request logs, no access rights are tied to it |
 
 Integration tests verify end-to-end contracts against live CDF:
 
@@ -143,6 +161,7 @@ Integration tests verify end-to-end contracts against live CDF:
 | `test_target_file_metadata_preserved_from_source` | MIME type, name prefix, `sourceContext`, `sourceId` |
 | `test_target_raw_and_file_are_linked` | RAW external ID points to a downloadable file |
 | `test_source_rows_with_files_have_target_rows` | No silent skips |
+| `test_reprocessing_same_document_is_idempotent` | Running `process_row` twice gives the same result, no double prefix |
 
 ## Typical training workflow
 
@@ -157,14 +176,18 @@ Integration tests verify end-to-end contracts against live CDF:
 
 ```bash
 # Unit tests (no CDF)
-pytest dmsextractor/tests/unit -v
 pytest tddextractexercise/tests/unit -v
 
-# Run reference extractor
-python -m dmsextractor --config dmsextractor/config.yaml
+# Lint and type check
+uv run ruff check
+uv run mypy tddextractexercise
+
+# Load credentials and run the exercise extractor
+set -a && source .env && set +a
+python -m tddextractexercise --config tddextractexercise/config.yaml
 
 # Integration tests (needs .env + pre-run extractor)
-pytest dmsextractor/tests/integration/ \
-  --config dmsextractor/tests/integration/config.yaml \
+pytest tddextractexercise/tests/integration/ \
+  --config tddextractexercise/tests/integration/config.yaml \
   -v
 ```
