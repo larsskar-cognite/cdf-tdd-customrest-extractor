@@ -17,12 +17,12 @@ from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Row
-from cognite.client.data_classes.data_modeling import NodeId
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile
 from cognite.extractorutils.statestore import AbstractStateStore
 from cognite.extractorutils.threading import CancellationToken
 
 from tddextractexercise.config import Config
+
+RAW_ROW_CHUNK_SIZE = 1000
 
 
 def build_source_external_id(document_id: str) -> str:
@@ -38,16 +38,7 @@ def build_target_filename(source_name: str) -> str:
 
 
 def process_row(cognite: CogniteClient, row: Row, config: Config) -> None:
-    columns: dict[str, Any] = row.columns or {}
-    source_space = "isp_CLOV"
-    source_external_id = build_source_external_id(columns.get("DocumentID", ""))
-    source_node = cognite.data_modeling.instances.retrieve_nodes(
-        nodes=NodeId(space=source_space, external_id=source_external_id),
-        node_cls=CogniteFile,
-    )
-    if source_node is None:
-        logging.warning(f"Source node not found for {columns.get('DocumentID')}")
-        return
+    raise NotImplementedError("Implement process_row — see tests/unit/test_extractor.py")
 
 
 def process_metadata(payload: dict[str, Any]) -> dict[str, str]:
@@ -72,4 +63,17 @@ def run_extractor(
 
 
 def process_rows(cognite: CogniteClient, config: Config) -> RunSummary:
-    raise NotImplementedError("Implement process_rows — see tests/unit/test_extractor.py")
+    summary = RunSummary()
+    for chunk in cognite.raw.rows(
+        db_name=config.source.database,
+        table_name=config.source.table,
+        chunk_size=RAW_ROW_CHUNK_SIZE,
+        limit=None,
+    ):
+        for row in chunk:
+            process_row(cognite, row, config)
+            summary.processed += 1
+            columns: dict[str, Any] = row.columns or {}
+            logging.info(f"Processed row: {row.key} with name: {columns.get('Title')}")
+    logging.info(f"Finished processing rows: {summary.processed} processed")
+    return summary

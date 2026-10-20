@@ -24,6 +24,8 @@ from cognite.extractorutils.threading import CancellationToken
 
 from tddextractexercise.config import Config
 
+RAW_ROW_CHUNK_SIZE = 1000
+
 
 def build_source_external_id(document_id: str) -> str:
     return f"NewProdom_CLOV_{document_id}"
@@ -100,15 +102,16 @@ def run_extractor(
 
 def process_rows(cognite: CogniteClient, config: Config) -> RunSummary:
     summary = RunSummary()
-    source_rows = cognite.raw.rows.list(
+    for chunk in cognite.raw.rows(
         db_name=config.source.database,
         table_name=config.source.table,
-        limit=10,
-    )
-    for row in source_rows:
-        process_row(cognite, row, config)
-        summary.processed += 1
-        columns: dict[str, Any] = row.columns or {}
-        logging.info(f"Processed row: {row.key} with name: {columns.get('Title')}")
+        chunk_size=RAW_ROW_CHUNK_SIZE,
+        limit=None,
+    ):
+        for row in chunk:
+            process_row(cognite, row, config)
+            summary.processed += 1
+            columns: dict[str, Any] = row.columns or {}
+            logging.info(f"Processed row: {row.key} with name: {columns.get('Title')}")
     logging.info(f"Finished processing rows: {summary.processed} processed")
     return summary

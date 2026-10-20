@@ -99,9 +99,9 @@ Config defines source RAW (`TEST_RAW_DATABASE`), target RAW (`TEST_RAW_TARGET`),
 python -m tddextractexercise tddextractexercise/config.yaml
 ```
 
-Start from the stub in [`tddextractexercise/extractor.py`](tddextractexercise/extractor.py) and implement `process_metadata`, `process_row`, and `run_extractor` using TDD. [`tddextractexercise/config.yaml`](tddextractexercise/config.yaml) has the same structure as the `dmsextractor` config. `run_extractor` processes the first 10 source rows (`limit=10`); `test_source_rows_with_files_have_target_rows` assumes the same limit.
+Start from the stub in [`tddextractexercise/extractor.py`](tddextractexercise/extractor.py) and implement `process_metadata`, `process_row`, and `run_extractor` using TDD. [`tddextractexercise/config.yaml`](tddextractexercise/config.yaml) has the same structure as the `dmsextractor` config. The finished extractor reads every source row, streamed in chunks of 1000 (`RAW_ROW_CHUNK_SIZE`).
 
-The `devcon-demo` branch has one commit per step, with the red test committed before the green implementation. The tags `demo-0-stub`, `demo-1-metadata`, `demo-2-skip`, `demo-3-mime-red`, `demo-4-mime-green` and `demo-5-full` mark each checkpoint:
+The `devcon-demo` branch has one commit per step, with the red test committed before the green implementation. The tags `demo-0-stub`, `demo-1-metadata`, `demo-2-chunks`, `demo-3-mime-red`, `demo-4-mime-green` and `demo-5-full` mark each checkpoint:
 
 ```bash
 git checkout demo-3-mime-red    # jump to a checkpoint
@@ -149,7 +149,7 @@ For the reference implementation, use `dmsextractor/config.yaml` and `dmsextract
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
-| `KNOWN_TEST_KEY` | `cb091563-1433-4a3f-b44f-2a83f6225f15` | Source RAW row key that must exist in `TEST_RAW_DATABASE.TEST_METADATA_TABLE`, have a file in `isp_CLOV`, and be within the first 10 rows the extractor processes |
+| `KNOWN_TEST_KEY` | `cb091563-1433-4a3f-b44f-2a83f6225f15` | Source RAW row key that must exist in `TEST_RAW_DATABASE.TEST_METADATA_TABLE`, and have a file in `isp_CLOV` |
 | Client name | `twin-auditor-service` | Name passed to `get_cognite_client()`; shows up in CDF request logs, no access rights are tied to it |
 
 Integration tests verify end-to-end contracts against live CDF:
@@ -160,7 +160,7 @@ Integration tests verify end-to-end contracts against live CDF:
 | `test_target_file_bytes_equal_source_file_bytes` | Binary fidelity |
 | `test_target_file_metadata_preserved_from_source` | MIME type, name prefix, `sourceContext`, `sourceId` |
 | `test_target_raw_and_file_are_linked` | RAW external ID points to a downloadable file |
-| `test_source_rows_with_files_have_target_rows` | No silent skips |
+| `test_source_rows_with_files_have_target_rows` | Every source row with a file has a target row (no silent skips, no row limit) |
 | `test_reprocessing_same_document_is_idempotent` | Running `process_row` twice gives the same result, no double prefix |
 
 ## Typical training workflow

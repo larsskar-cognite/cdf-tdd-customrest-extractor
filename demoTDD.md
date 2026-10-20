@@ -34,9 +34,22 @@ Interactive: ask "will it pass?" before each run.
 ## TDD demo steps
 
 1. `test_maps_all_fields` -> implement `process_metadata` (instant green)
-2. `test_skips_when_source_node_missing` -> early return, assert_not_called on side effects
-3. MIME type test -> red against hard-coded `application/pdf`, fix with `mime_type=mimetype`
-4. Integration: `test_target_file_bytes_equal_source_file_bytes`
+2. Scale: `test_processes_all_rows_streamed_in_chunks` -> 5,000 mocked rows, red
+   (`NotImplementedError`; the old `raw.rows.list(limit=10)` version gives
+   `assert 0 == 5000`), green by streaming `raw.rows(chunk_size=1000, limit=None)`.
+   The whole unit suite still runs in well under a second.
+   "This proves we read everything, in bounded chunks, so memory stays flat."
+3. MIME type test -> red against hard-coded `application/pdf`, fix with `mime_type=source_node.mime_type`
+4. Point at `test_retries_apply_on_version_conflict` (demo 5): red shows
+   `CogniteAPIError: Version conflict | code: 409`; green retries with backoff.
+   `test_does_not_retry_other_api_errors` guards against swallowing real errors.
+5. Integration: `test_target_file_bytes_equal_source_file_bytes`, then
+   `test_source_rows_with_files_have_target_rows`. It used to copy the
+   extractor's `limit=10` and so agreed with the bug. Against data from the old
+   extractor it is red with 10 of 20 rows missing (`rehearsal/integration_coverage_red.txt`).
+
+The skip test (`test_skips_when_source_node_missing`) is in the demo 3 red
+commit and is not shown live.
 
 
 
@@ -65,25 +78,25 @@ Interactive: ask "will it pass?" before each run.
 
 ## Optional: scale-oriented tests (link back to the hook)
 
-- [ ] Retry test: `side_effect` raises `CogniteAPIError` (version conflict) once, then
+- [x] Retry test: `side_effect` raises `CogniteAPIError` (version conflict) once, then
   ```
   succeeds; patch `time.sleep`
   ```
-- [ ] Partial-failure test: many rows, some raise; assert failures are counted or
+- [x] Partial-failure test: many rows, some raise; assert failures are counted or
   ```
   reported, not only logged
   ```
-- [ ] Consider: RAW row is inserted before file apply/upload. Test that a failed
+- [x] Consider: RAW row is inserted before file apply/upload. Test that a failed
   ```
   upload doesn't leave a dangling RAW row
   ```
-- [ ] Note `limit=10` in `run_extractor` and the coverage test
+- [x] Replace `limit=10` with chunked streaming (demo 2) and fix the coverage test
 
 
 
 ## Staging checklist
 
-- [x] Git tags/commits: stub, metadata green, skip green, MIME red, MIME green, full solution
+- [x] Git tags/commits: stub, metadata green, chunks green, MIME red, MIME green, full solution
 - [ ] Record sped-up non-TDD clip
 - [x] Run extractor beforehand so target data exists
 - [x] Record or screenshot a passing integration run (fallback, text output in `rehearsal/`)
@@ -116,8 +129,7 @@ refactoring, scale and AI-generated code.
 
 ## Rehearsal results (2026-10-20, project `larsdog-test` on bluefield)
 
-- `KNOWN_TEST_KEY` (`cb091563-...`) exists, is within the first 10 source rows,
-and has a source file (`AO-CLV-ALL-1235-000352.pdf`). Client name
+- The source table has 20 rows. `KNOWN_TEST_KEY` (`cb091563-...`) exists and has a source file (`AO-CLV-ALL-1235-000352.pdf`). Client name
 `twin-auditor-service` works with the `.env` credentials. Target space `isp_Target` exists.
 - MIME types in the first 10 source files: 9 PDF, 1 Word (`1bc2e0c0-...`). The
 integration MIME check uses `KNOWN_TEST_KEY`, which is a PDF, so it would not
@@ -128,17 +140,19 @@ with "unrecognized arguments".
 
 | Step | Wall time |
 | ---- | --------- |
-| Extractor run at `demo-5-full` (10 rows, 0 failed) | 12 s |
-| Integration suite (6 tests) | 11.5 s |
+| Extractor run at `demo-5-full` (20 rows, 0 failed) | 30 s |
+| Integration suite (6 tests) | 8.7 s |
 | Integration `test_target_file_bytes_equal_source_file_bytes` alone | 1.9 s |
-| Unit tests at any demo tag | < 0.5 s |
+| Integration coverage test alone | 3.2 s |
+| Unit tests at any demo tag, including 5,000-row test | < 0.5 s |
 
-Red/green results per commit on `devcon-demo` match the plan: demo 1 red (4 fail),
-demo 2 red (1 fail), demo 3 red (3 fail), demo 3 hard-coded PDF (1 fail:
-`test_uses_source_mimetype_not_pdf`), demo 5 red (4 fail), every green commit passes.
+Red/green results per commit on `devcon-demo`: demo 1 red (4 fail), demo 2 red
+(1 fail), demo 3 red (4 fail), demo 3 hard-coded PDF (1 fail:
+`test_uses_source_mimetype_not_pdf`), demo 5 red (3 fail), every green commit passes.
 
 Fallback output is saved in `rehearsal/` (gitignored): `integration_run_full.txt`,
-`integration_bytes_parity.txt` and `unit_<commit>_<step>.txt` for each demo commit.
+`integration_bytes_parity.txt`, `integration_coverage_red.txt` (10 of 20 rows
+missing), `integration_coverage_green.txt` and `unit_<commit>_<step>.txt` for each demo commit.
 
 ## Open gaps (not covered by my sources)
 
