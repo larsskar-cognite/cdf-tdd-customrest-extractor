@@ -1,5 +1,7 @@
 from pathlib import Path
+from unittest.mock import patch
 
+from cognite.client.data_classes import Row
 from cognite.extractorutils.configtools import load_yaml
 
 from tddextractexercise.config import Config
@@ -8,6 +10,7 @@ from tddextractexercise.extractor import (
     build_target_external_id,
     build_target_filename,
     process_metadata,
+    process_rows,
 )
 
 UNIT_TEST_CONFIG = Path(__file__).parent / "config.yaml"
@@ -55,3 +58,23 @@ class TestExternalIds:
 
     def test_target_filename_preserves_extension(self):
         assert build_target_filename("Report.docx") == "Target_Report.docx"
+
+
+class TestScale:
+    def test_processes_all_rows_streamed_in_chunks(self, mock_cognite, config):
+        chunks = [
+            [Row(key=f"row-{i}", columns={"DocumentID": f"DOC-{i}"}) for i in range(start, start + 1000)]
+            for start in range(0, 5000, 1000)
+        ]
+        mock_cognite.raw.rows.return_value = iter(chunks)
+
+        with patch("tddextractexercise.extractor.process_row", autospec=True) as process_row:
+            summary = process_rows(mock_cognite, config)
+
+        assert summary.processed == 5000
+        assert process_row.call_count == 5000
+        kwargs = mock_cognite.raw.rows.call_args.kwargs
+        assert kwargs["db_name"] == "SRC_DB"
+        assert kwargs["table_name"] == "SRC_TABLE"
+        assert kwargs["limit"] is None
+        assert kwargs["chunk_size"] is not None
