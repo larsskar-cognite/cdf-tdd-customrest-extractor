@@ -97,9 +97,17 @@ def test_source_rows_with_files_have_target_rows(cdf_client, config):
     source_rows = cdf_client.raw.rows.list(
         db_name=config.source.database,
         table_name=config.source.table,
-        limit=10,  # same limit as run_extractor
+        limit=None,
     )
     assert len(source_rows) > 0
+    target_keys = {
+        row.key
+        for row in cdf_client.raw.rows.list(
+            db_name=config.target.database,
+            table_name=config.target.table,
+            limit=None,
+        )
+    }
 
     missing_targets = []
     for row in source_rows:
@@ -111,16 +119,7 @@ def test_source_rows_with_files_have_target_rows(cdf_client, config):
         if source_node is None:
             continue  # extractor skips these by design
 
-        try:
-            target_row = cdf_client.raw.rows.retrieve(
-                db_name=config.target.database,
-                table_name=config.target.table,
-                key=row.key,
-            )
-        except Exception:
-            target_row = None
-
-        if target_row is None:
+        if row.key not in target_keys:
             missing_targets.append(row.key)
 
     assert not missing_targets, f"Source rows with files missing in target RAW: {missing_targets}"
