@@ -19,17 +19,30 @@ and a prior extractor run)
 ## Session timeline (estimates, rehearse them)
 
 
-| Time        | Segment           | Content                                                                                                                                                                         |
-| ----------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Time        | Segment           | Content                                                                                                                                                                           |
+| ----------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0:00-4:00   | Hook, why TDD now | Extractors break, leak memory or stall at volume. AI agents produce code faster than we can read it. Promise: "I'll show you tests that prove scale behaviour in under a second." |
-| 4:00-7:00   | Non-TDD attempt   | Quick-and-dirty `dmsextractor/extractor_quiet_lie.py`. Runs without errors, yet: Word file stored as PDF (CDF viewer can't open it), and only 10 of 20 rows copied (`limit=10`).    |
-| 7:00-15:00  | TDD demo          | Metadata (1 min), scale: stream every row (3 min), MIME (2.5 min), retry on version conflict (1.5 min). Script below.                                                           |
-| 15:00-18:00 | Integration test  | File bytes parity, then the coverage test that used to agree with the `limit=10` bug. "Mocks prove my logic. The integration test proves the contract."                         |
-| 18:00-23:00 | Takeaways         | What the tests prove about scale, SDK mocking (`CogniteClientMock`), CI gating, agent guidance (AGENTS.md, red/green TDD, commit the red test, avoid over-mocking).             |
-| 23:00-25:00 | Q&A               |                                                                                                                                                                                 |
+| 4:00-7:00   | Non-TDD attempt   | Quick-and-dirty `dmsextractor/extractor_quiet_lie.py`. Runs without errors, yet: Word file stored as PDF (CDF viewer can't open it), and only 10 of 20 rows copied (`limit=10`).  |
+| 7:00-15:00  | TDD demo          | Metadata (1 min), scale: stream every row (3 min), MIME (2.5 min), retry on version conflict (1.5 min). Script below.                                                             |
+| 15:00-18:00 | Integration test  | File bytes parity, then the coverage test that used to agree with the `limit=10` bug. "Mocks prove my logic. The integration test proves the contract."                           |
+| 18:00-23:00 | Takeaways         | What the tests prove about scale, SDK mocking (`CogniteClientMock`), CI gating, agent guidance (AGENTS.md, red/green TDD, commit the red test, avoid over-mocking).               |
+| 23:00-25:00 | Q&A               |                                                                                                                                                                                   |
 
 
 Interactive: ask "will it pass?" before each run.
+
+## The Hook - intro
+
+
+
+#### **Suggested 4-minute flow**
+
+1. **0:00-0:30:** The claim: extractors that work on a sample break at volume.
+2. **0:30-2:30:** Examples 1 and 2 (memory and stalls), one slide each with a chart or log excerpt.
+3. **2:30-3:15:** Example 3 (queue pile-up), a single striking log line.
+4. **3:15-4:00:** The bridge: AI makes more of this code, faster, and we can't read it all. The answer is tests that define the contract. Then hand over to the demo.
+
+
 
 ## Demo script
 
@@ -41,74 +54,86 @@ red commit before a green tag; `demo-2-chunks~2` is the demo 2 red commit.
 
 1. Show `dmsextractor/extractor_quiet_lie.py` briefly (or the sped-up clip). It looks reasonable.
 2. In the CDF UI, open space `isp_Lars` and the file
-   `AO-CLV-ALL-1235-000365_CL-INER-TOP-M125-INST-1Y.docx`. The viewer fails: it's a
+  `AO-CLV-ALL-1235-000365_CL-INER-TOP-M125-INST-1Y.docx`. The viewer fails: it's a
    Word file labelled `application/pdf`.
 3. Say: "No errors, no warnings. And there's a second bug you can't see in the UI:
-   it only read 10 of the 20 source rows. Hold that thought."
+  it only read 10 of the 20 source rows. Hold that thought."
+
+
 
 ### Step 1: metadata (7:00-8:00)
 
 - Test: `test_maps_all_fields` and the external ID helpers.
 - Run `pytest tddextractexercise/tests/unit -v`: red, 4 failed. Implement
-  `process_metadata`: green, 6 passed.
+`process_metadata`: green, 6 passed.
 - Say: "Pure function, no mocks. Keep the logic away from I/O and testing is trivial."
 - Fallback: `git checkout demo-1-metadata~1` (red), `git checkout demo-1-metadata` (green).
+
+
 
 ### Step 2: scale, stream every row (8:00-11:00)
 
 - Test: `TestScale::test_processes_all_rows_streamed_in_chunks`. It feeds 5,000 rows
-  in 5 chunks through the SDK's `CogniteClientMock`, with `process_row` patched out.
+in 5 chunks through the SDK's `CogniteClientMock`, with `process_row` patched out.
 - Run: red, `NotImplementedError`.
 - Say: "The quick version used `raw.rows.list(limit=10)`. Against that, this test
-  says `assert 0 == 5000`."
+says `assert 0 == 5000`."
 - Implement: loop over `cognite.raw.rows(chunk_size=RAW_ROW_CHUNK_SIZE, limit=None)`
-  and then over each chunk. Run: green, 7 passed in about 0.06 s.
+and then over each chunk. Run: green, 7 passed in about 0.06 s.
 - Say: "5,000 rows in a fraction of a second. This proves we read everything, in
-  bounded chunks, so memory stays flat whether the table has 20 rows or 20 million.
-  Try proving that against a live system in a 25-minute talk."
+bounded chunks, so memory stays flat whether the table has 20 rows or 20 million.
+Try proving that against a live system in a 25-minute talk."
 - Fallback: `git checkout demo-2-chunks~2` (red), `git checkout demo-2-chunks~1` (green).
+
+
 
 ### Step 3: MIME type (11:00-13:30)
 
 - Show the step 3 red tests: skip when the source node is missing, MIME type,
-  upload target, filename prefix. Don't dwell on the skip test.
+upload target, filename prefix. Don't dwell on the skip test.
 - Check out `demo-3-mime-red`: `process_row` written quickly, without TDD, with a
-  hard-coded PDF. Run: 1 failed, `test_uses_source_mimetype_not_pdf`, with
-  `'application/pdf' == 'application/...wordprocessingml.document'`.
+hard-coded PDF. Run: 1 failed, `test_uses_source_mimetype_not_pdf`, with
+`'application/pdf' == 'application/...wordprocessingml.document'`.
 - Say: "That's the Word file the CDF viewer couldn't open. Found in milliseconds,
-  not by a user."
+not by a user."
 - Fix: `mime_type=source_node.mime_type`. Run: green, 11 passed.
 - Say: "The source node fixture is a real `CogniteFile`, not a MagicMock. A wrong
-  attribute name like `mimeType` fails instead of passing silently."
+attribute name like `mimeType` fails instead of passing silently."
 - Fallback: `git checkout demo-4-mime-green`.
+
+
 
 ### Step 4: retry on version conflict (13:30-15:00)
 
 - Check out `demo-5-full~1` and show `test_retries_apply_on_version_conflict`. The
-  first `apply` raises a 409 version conflict and the second succeeds; `time.sleep`
-  is patched.
+first `apply` raises a 409 version conflict and the second succeeds; `time.sleep`
+is patched.
 - Run `pytest tddextractexercise/tests/unit -v -k retr`: red,
-  `CogniteAPIError: Version conflict | code: 409`.
+`CogniteAPIError: Version conflict | code: 409`.
 - Check out `demo-5-full`: green, with `apply_with_retry` and exponential backoff.
 - Say: "At volume, concurrent writers hit version conflicts. You'll never reproduce
-  that reliably against CDF; with a mock it's one line. And
-  `test_does_not_retry_other_api_errors` makes sure we don't retry a 403."
+that reliably against CDF; with a mock it's one line. And
+`test_does_not_retry_other_api_errors` makes sure we don't retry a 403."
 - Mention the other demo 5 tests without running them: failed rows are counted, not
-  only logged, and no RAW row is written for a file that failed to upload.
+only logged, and no RAW row is written for a file that failed to upload.
+
+
 
 ### Integration (15:00-18:00)
 
 `.env` is loaded and the target was populated by the `demo-5-full` extractor (20 rows).
 
 1. Run `test_target_file_bytes_equal_source_file_bytes` (about 2 s): green.
-   Say: "Same bytes in source and target. A mock can't tell you that."
+  Say: "Same bytes in source and target. A mock can't tell you that."
 2. Show `test_source_rows_with_files_have_target_rows`. Say: "This test used to read
-   `limit=10  # same limit as run_extractor`. It agreed with the bug, so it could
+  `limit=10  # same limit as run_extractor`. It agreed with the bug, so it could
    never catch it."
 3. Show `rehearsal/integration_coverage_red.txt`: against the old extractor's data,
-   10 of 20 rows were missing. Then run it live (about 3 s): green.
+  10 of 20 rows were missing. Then run it live (about 3 s): green.
 4. Say: "Mocks prove my logic. The integration test proves the contract. An
-   integration test that copies production logic proves nothing."
+  integration test that copies production logic proves nothing."
+
+
 
 ### Takeaways: what the tests prove about scale (18:00-23:00)
 
@@ -118,8 +143,8 @@ red commit before a green tag; `demo-2-chunks~2` is the demo 2 red commit.
 - No dangling RAW rows when an upload fails: ordering test.
 - Re-runs are safe, with no duplicates and no double prefix: integration idempotency test.
 - Honest framing: unit tests don't measure throughput. They pin down the behaviours
-  that decide whether an extractor survives volume, and they're fast enough (15 tests
-  in about 0.3 s) to refactor towards batching without fear.
+that decide whether an extractor survives volume, and they're fast enough (15 tests
+in about 0.3 s) to refactor towards batching without fear.
 
 
 
@@ -208,13 +233,15 @@ or point `KNOWN_TEST_KEY` at the Word row.
 - The extractor takes the config path as a positional argument; `--config` fails
 with "unrecognized arguments".
 
-| Step | Wall time |
-| ---- | --------- |
-| Extractor run at `demo-5-full` (20 rows, 0 failed) | 30 s |
-| Integration suite (6 tests) | 8.7 s |
-| Integration `test_target_file_bytes_equal_source_file_bytes` alone | 1.9 s |
-| Integration coverage test alone | 3.2 s |
-| Unit tests at any demo tag, including 5,000-row test | < 0.5 s |
+
+| Step                                                               | Wall time |
+| ------------------------------------------------------------------ | --------- |
+| Extractor run at `demo-5-full` (20 rows, 0 failed)                 | 30 s      |
+| Integration suite (6 tests)                                        | 8.7 s     |
+| Integration `test_target_file_bytes_equal_source_file_bytes` alone | 1.9 s     |
+| Integration coverage test alone                                    | 3.2 s     |
+| Unit tests at any demo tag, including 5,000-row test               | < 0.5 s   |
+
 
 Red/green results per commit on `devcon-demo`: demo 1 red (4 fail), demo 2 red
 (1 fail), demo 3 red (4 fail), demo 3 hard-coded PDF (1 fail:
